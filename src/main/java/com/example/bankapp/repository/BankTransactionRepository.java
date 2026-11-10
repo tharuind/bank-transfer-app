@@ -25,7 +25,7 @@ public interface BankTransactionRepository
     @Query("SELECT t FROM BankTransaction t WHERE t.status = :status ORDER BY t.createdAt DESC")
     List<BankTransaction> findByStatusLatest(@Param("status") TransactionStatus status);
 
-    @Query("SELECT t FROM BankTransaction t WHERE t.status = :status")
+    @Query("SELECT COUNT(t) FROM BankTransaction t WHERE t.status = :status")
     long countByStatus(@Param("status") TransactionStatus status);
 
     @Query("SELECT t FROM BankTransaction t WHERE t.status = 'SUCCESS' AND t.amount >= :minAmount ORDER BY t.createdAt DESC")
