@@ -33,7 +33,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)          // default for every method: read-only transaction
-public class BankService  {
+public class BankService {
 
     private final CustomerRepository customerRepository;
     private final BankTransactionRepository transactionRepository;
@@ -65,12 +65,9 @@ public class BankService  {
             throw new AccountNotFoundException("Receiver account " + receiverAcc + " not found");
         }
 
-        BigDecimal fee = amount.multiply(new BigDecimal("0.01"));
-        BigDecimal totalDeduction = amount.add(fee);
-
-        int updatedRows = customerRepository.debit(senderAcc, totalDeduction);
+        int updatedRows = customerRepository.debit(senderAcc, amount);
         if (updatedRows == 0) {
-            throw new InsufficientBalanceException("Insufficient balance in account " + senderAcc + " to cover transfer amount and 1% fee");
+            throw new InsufficientBalanceException("Insufficient balance in account " + senderAcc);
         }
 
         if (request.isSimulateFailure()) {
@@ -79,14 +76,12 @@ public class BankService  {
 
         customerRepository.credit(receiverAcc, amount);
 
-        customerRepository.credit("999999", fee);
-
         BankTransaction successTx = new BankTransaction();
         successTx.setFromAccount(senderAcc);
         successTx.setToAccount(receiverAcc);
         successTx.setAmount(amount);
         successTx.setStatus(TransactionStatus.SUCCESS);
-        successTx.setDescription("Transfer completed with LKR " + fee + " fee");
+        successTx.setDescription("Transfer from " + senderAcc + " to " + receiverAcc);
         successTx.setCreatedAt(LocalDateTime.now());
 
         return transactionRepository.save(successTx);
