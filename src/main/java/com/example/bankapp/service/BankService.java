@@ -1,14 +1,5 @@
 package com.example.bankapp.service;
 
-/*import com.example.bankapp.exception.AccountNotFoundException;
-import com.example.bankapp.exception.BankException;
-import com.example.bankapp.exception.InsufficientBalanceException;
-import com.example.bankapp.model.BankTransaction;
-import com.example.bankapp.model.Customer;
-import com.example.bankapp.model.TransactionStatus;
-import com.example.bankapp.repository.BankTransactionRepository;
-import com.example.bankapp.repository.CustomerRepository;*/
-
 import com.example.bankapp.dto.TransferRequest;
 import com.example.bankapp.exception.AccountNotFoundException;
 import com.example.bankapp.exception.BankException;
@@ -21,18 +12,14 @@ import com.example.bankapp.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.annotation.Propagation;
-/*import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.Optional;*/
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)          // default for every method: read-only transaction
+@Transactional(readOnly = true)
 public class BankService {
 
     private final CustomerRepository customerRepository;
@@ -48,11 +35,12 @@ public class BankService {
         createCustomer(customer);
     }
 
-   @Transactional(propagation = Propagation.SUPPORTS)
+    @Transactional(rollbackFor = Exception.class)
     public BankTransaction transfer(TransferRequest request) {
         String senderAcc = request.getFromAccount();
         String receiverAcc = request.getToAccount();
         BigDecimal amount = request.getAmount();
+
         if (senderAcc.equals(receiverAcc)) {
             throw new BankException("Sender and receiver must be different accounts");
         }
@@ -64,9 +52,12 @@ public class BankService {
             throw new AccountNotFoundException("Receiver account " + receiverAcc + " not found");
         }
 
-        int updatedRows = customerRepository.debit(senderAcc, amount);
+        BigDecimal fee = amount.multiply(new BigDecimal("0.01"));
+        BigDecimal totalDeduction = amount.add(fee);
+
+        int updatedRows = customerRepository.debit(senderAcc, totalDeduction);
         if (updatedRows == 0) {
-            throw new InsufficientBalanceException("Insufficient balance in account " + senderAcc);
+            throw new InsufficientBalanceException("Insufficient balance in account " + senderAcc + " to cover transfer amount and 1% fee");
         }
 
         if (request.isSimulateFailure()) {
@@ -75,12 +66,14 @@ public class BankService {
 
         customerRepository.credit(receiverAcc, amount);
 
+        customerRepository.credit("999999", fee);
+
         BankTransaction successTx = new BankTransaction();
         successTx.setFromAccount(senderAcc);
         successTx.setToAccount(receiverAcc);
         successTx.setAmount(amount);
         successTx.setStatus(TransactionStatus.SUCCESS);
-        successTx.setDescription("Transfer from " + senderAcc + " to " + receiverAcc);
+        successTx.setDescription("Transfer completed with LKR " + fee + " fee");
         successTx.setCreatedAt(LocalDateTime.now());
 
         return transactionRepository.save(successTx);
