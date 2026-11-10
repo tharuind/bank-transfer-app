@@ -21,7 +21,7 @@ import com.example.bankapp.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import org.springframework.transaction.annotation.Propagation;
 /*import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
@@ -48,12 +48,11 @@ public class BankService {
         createCustomer(customer);
     }
 
-    @Transactional(rollbackFor = Exception.class)
+   @Transactional(propagation = Propagation.SUPPORTS)
     public BankTransaction transfer(TransferRequest request) {
         String senderAcc = request.getFromAccount();
         String receiverAcc = request.getToAccount();
         BigDecimal amount = request.getAmount();
-
         if (senderAcc.equals(receiverAcc)) {
             throw new BankException("Sender and receiver must be different accounts");
         }
