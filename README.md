@@ -12,5 +12,19 @@ Demonstrates:
 3. Open http://localhost:8080  (3 sample customers are created on first start)
 
 If your MySQL root user has a password, copy `secrets.properties.example` to `secrets.properties` and edit it.
+
+## JSON transfer API
+Send a `POST` request to `http://localhost:8080/transfer` with `Content-Type: application/json`:
+
+```json
+{
+  "fromAccount": "100001",
+  "toAccount": "100002",
+  "amount": 5000.00,
+  "simulateFailure": false
+}
+```
+
+In Postman, choose **Body -> raw -> JSON**. A successful transfer returns JSON with the transaction ID, status, account numbers, and amount. Invalid fields or transfer failures return a JSON error response with HTTP `400`. The existing browser form continues to use `application/x-www-form-urlencoded` at the same URL.
 "# Assignment_Grading" 
 "# Bank_Tranfer_App" 

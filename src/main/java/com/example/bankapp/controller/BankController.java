@@ -21,13 +21,18 @@ import java.math.BigDecimal;
 import java.util.List;*/
 
 
+import com.example.bankapp.dto.TransferApiResponse;
 import com.example.bankapp.dto.TransferRequest;
+import com.example.bankapp.exception.BankException;
 import com.example.bankapp.model.Customer;
 import com.example.bankapp.model.TransactionStatus;
 import com.example.bankapp.service.BankService;
 import com.example.bankapp.service.TransactionAuditService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -35,6 +40,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -83,7 +89,7 @@ public class BankController {
         return "redirect:/";
     }
 // 3. Money Transfer with Rollback Audit Handling
-    @PostMapping("/transfer")
+    @PostMapping(value = "/transfer", consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE)
     public String transfer(
             @Valid @ModelAttribute("transferRequest") TransferRequest request,
             BindingResult bindingResult,
@@ -106,6 +112,35 @@ public class BankController {
             redirectAttributes.addFlashAttribute("error", exception.getMessage());
         }
         return "redirect:/";
+    }
+
+    @PostMapping(value = "/transfer", consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TransferApiResponse> transferJson(
+            @Valid @RequestBody TransferRequest request,
+            BindingResult bindingResult) {
+
+        if (bindingResult.hasErrors()) {
+            List<String> errors = bindingResult.getFieldErrors().stream()
+                    .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                    .toList();
+            return ResponseEntity.badRequest().body(
+                    TransferApiResponse.failure("Please enter valid transfer details.", errors));
+        }
+
+        try {
+            var transaction = bankService.transfer(request);
+            return ResponseEntity.ok(TransferApiResponse.success(
+                    "Transfer completed successfully.", transaction));
+        } catch (BankException exception) {
+            transactionAuditService.recordFailure(
+                    request.getFromAccount(),
+                    request.getToAccount(),
+                    request.getAmount(),
+                    exception.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
+                    TransferApiResponse.failure(exception.getMessage(), List.of()));
+        }
     }
 
     // 4. View Specific Account Transaction History
